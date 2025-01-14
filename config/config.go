@@ -18,6 +18,9 @@ type Config struct {
 	DBPort     string `env:"DB_PORT"`
 	DBAddress  string `env:"DATABASE_URL"`
 	DBName     string `env:"DB_NAME"`
+
+	JWTSecret     string `env:"JWT_SECRET"`
+	JWTExpiration int64  `env:"JWT_EXPIRATION"`
 }
 
 var Envs = initConfig()

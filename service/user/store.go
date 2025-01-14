@@ -53,7 +53,7 @@ func (s *Store) CreateUser(u types.RegisterUserPayload) error {
 	}
 	// passing u of RegisterUserPayload is causing error with gorm
 	user := types.User{
-		FistName:  u.FirstName,
+		FirstName: u.FirstName,
 		LastName:  u.LastName,
 		Email:     u.Email,
 		Password:  h, // hashed with bcrypt
