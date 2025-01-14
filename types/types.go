@@ -32,8 +32,8 @@ type Blog struct {
 	Category    string `json:"category" validate:"required,min=3,max=255"`
 	// tags are separated by commas for now. can validate to new table with many to many relation
 	Tags   []Tag `json:"tags" validate:"required" gorm:"many2many:blog_tags;"`
-	UserId uint  `json:"user_id" validate:"required"` // Foreign key reference
-	User   User  `gorm:"foreignKey:UserId"`           // Establish relationship
+	UserId uint  `json:"user_id" validate:"-"` // Foreign key reference
+	// User   User  `gorm:"foreignKey:UserId"`           // Establish relationship
 }
 
 // === === USER  === ===

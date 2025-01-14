@@ -2,7 +2,6 @@ package blog
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -25,7 +24,6 @@ func NewHandler(store types.BlogStore, userStore types.UserStore) *Handler {
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId, err := auth.ParseJWTRequest(r)
-		fmt.Println(userId, err)
 		if err != nil || userId == 0 {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -61,7 +59,6 @@ func (h *Handler) handleBlogCreation(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
-
 	// validate blog body
 	if err := utils.Validate.Struct(b); err != nil {
 		err = err.(validator.ValidationErrors)
@@ -69,6 +66,7 @@ func (h *Handler) handleBlogCreation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	b.UserId = uint(userId)
 	// create the blog
 	err = h.store.CreateBlog(b)
 	if err != nil {
