@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/izumii.cxde/blog-api/service/user"
 	"gorm.io/gorm"
 )
 
@@ -22,6 +23,10 @@ func (s *APIServer) Run() error {
 	router := mux.NewRouter()
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
 
-	slog.Info("Listening on: ", s.addr)
+	userStore := user.NewStore(s.db)
+	userHandler := user.NewHandler(userStore)
+	userHandler.RegisterRoutes(subrouter)
+
+	slog.Info("Listening on: ", slog.String("addr", s.addr))
 	return http.ListenAndServe(s.addr, router)
 }
