@@ -12,7 +12,7 @@ type UserStore interface {
 
 type User struct {
 	gorm.Model
-	ID        int    `json:"id,omitempty"`
+	// ID        int    `json:"id,omitempty"`
 	FistName  string `json:"first_name,omitempty"`
 	LastName  string `json:"last_name,omitempty"`
 	Email     string `json:"email,omitempty"`
