@@ -60,10 +60,12 @@ func ValidateJWTToken(token string) (int64, error) {
 	}
 
 	// Extract user ID from the claims
-	userId, ok := claims["id"].(int64)
+	userIdFloat, ok := claims["id"].(float64)
 	if !ok {
 		return 0, fmt.Errorf("invalid or missing value in token")
 	}
 
+	// Convert the float64 userId to int64
+	userId := int64(userIdFloat)
 	return userId, nil
 }

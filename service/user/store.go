@@ -26,7 +26,7 @@ func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	return &u, nil
 }
 
-func (s *Store) GetUserById(id int) (*types.User, error) {
+func (s *Store) GetUserById(id int64) (*types.User, error) {
 	var u types.User
 
 	res := s.db.First(&u, id)

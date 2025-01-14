@@ -16,7 +16,11 @@ func NewPostgresStorage(cfg config.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err = db.AutoMigrate(&types.User{}); err != nil {
+	if err = db.AutoMigrate(
+		&types.User{},
+		&types.Blog{},
+		&types.Tag{},
+		&types.BlogTag{}); err != nil {
 		slog.Error("failed to auto migrate: ", slog.String("error", err.Error()))
 		return db, err
 	} else {

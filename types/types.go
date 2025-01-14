@@ -4,9 +4,24 @@ import (
 	"gorm.io/gorm"
 )
 
+// suggested by the compiler
+type ContextKey string
+
+const UserIDKey ContextKey = "userId"
+
 // === === POST === ===
 type BlogStore interface {
 	CreateBlog(b Blog) error
+}
+
+type Tag struct {
+	gorm.Model
+	Name string `json:"name" validate:"required,min=1,max=50"`
+}
+
+type BlogTag struct {
+	BlogID uint `gorm:"primaryKey"`
+	TagID  uint `gorm:"primaryKey"`
 }
 
 type Blog struct {
@@ -14,8 +29,11 @@ type Blog struct {
 	Title       string `json:"title" validate:"required,min=3,max=255"`
 	Description string `json:"description" validate:"required,min=3,max=500"`
 	Content     string `json:"content" validate:"required,min=3,max=3000"`
-	UserId      uint   `json:"user_id" validate:"required"` // Foreign key reference
-	User        User   `gorm:"foreignKey:UserId"`           // Establish relationship
+	Category    string `json:"category" validate:"required,min=3,max=255"`
+	// tags are separated by commas for now. can validate to new table with many to many relation
+	Tags   []Tag `json:"tags" validate:"required" gorm:"many2many:blog_tags;"`
+	UserId uint  `json:"user_id" validate:"required"` // Foreign key reference
+	User   User  `gorm:"foreignKey:UserId"`           // Establish relationship
 }
 
 // === === USER  === ===

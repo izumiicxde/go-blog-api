@@ -56,9 +56,11 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// if all is good set the cookie
 	c := http.Cookie{
-		Name:    "token",
-		Value:   t,
-		Expires: time.Now().Add(time.Hour * 24 * 7),
+		Name:     "token",
+		Value:    t,
+		Expires:  time.Now().Add(time.Hour * 24 * 7),
+		HttpOnly: true,
+		Secure:   true,
 	}
 	http.SetCookie(w, &c)
 
