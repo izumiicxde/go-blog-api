@@ -87,6 +87,7 @@ func (h *Handler) handleBlogSoftDeletion(w http.ResponseWriter, r *http.Request)
 	// soft delete the blog
 	if err := h.store.SoftDeleteBlogById(userId, blogId); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to delete blog: %w", err))
+		return
 	}
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "blog soft delete success"})
 }
