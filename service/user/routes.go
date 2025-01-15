@@ -77,14 +77,17 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// get user by email
 	user, err := h.store.GetUserByEmail(u.Email)
-	if err == nil || (user != nil && user.Verified) {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already exists"))
-		return
+	if err != nil {
+		if !(err.Error() == "record not found") {
+			utils.WriteError(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
-
-	// to make sure the requests are not spamming
-	if !user.OtpExpiration.After(time.Now()) {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("please wait some time. before trying again"))
+	if err == nil || user != nil {
+		if user.Verified {
+			utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already exists"))
+		}
+		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -121,15 +124,19 @@ func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
+	if u.Verified {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already verified"))
+		return
+	}
 	if !auth.ValidateOTP(VerificationPayload.Otp, *u) {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid otp"))
 		return
 	}
 	u.Verified = true
 	u.Otp = ""
-	u.OtpExpiration = time.Time{}
 	if err := h.store.UpdateUserById(int64(u.ID), *u); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "user verified successfully"})
 }

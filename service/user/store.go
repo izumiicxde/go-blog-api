@@ -78,3 +78,7 @@ func (s *Store) UpdateUserById(id int64, u types.User) error {
 	}
 	return nil
 }
+
+func (s *Store) DeleteUserById(id int64) error {
+	return s.db.Delete(&types.User{}, id).Error
+}
