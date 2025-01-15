@@ -86,7 +86,7 @@ If the blog doesn't exist, it returns nil with an error
 */
 func (s *Store) GetBlogById(id int64) (*types.Blog, error) {
 	var b types.Blog
-	if err := s.db.First(&b, id).Error; err != nil {
+	if err := s.db.Preload("Tags").First(&b, id).Error; err != nil {
 		return nil, err
 	}
 	return &b, nil
@@ -106,7 +106,7 @@ func (s *Store) GetAllBlogs(userId int64, term string) (*[]types.Blog, error) {
 	var blogs []types.Blog
 
 	// Start building the query with the user_id filter and deleted_at check
-	query := s.db.Where("user_id = ? AND deleted_at is NULL", userId)
+	query := s.db.Preload("Tags").Where("user_id = ? AND deleted_at is NULL", userId)
 
 	// If a search term is provided, filter the results based on the term
 	if term != "" {
