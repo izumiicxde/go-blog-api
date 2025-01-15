@@ -78,10 +78,20 @@ func (s *Store) CreateUser(u types.RegisterUserPayload, otp string) error {
 }
 
 func (s *Store) UpdateUserById(id int64, u types.User) error {
+	// Validate the struct before updating
 	if errs := utils.Validate.Struct(u); errs != nil {
 		return errs.(validator.ValidationErrors)
 	}
-	res := s.db.Model(&types.User{}).Where("id = ?", id).Updates(u)
+
+	// Use `Select` to include all fields explicitly
+	res := s.db.Model(&types.User{}).
+		Where("id = ?", id).
+		Select("verified", "otp"). // Explicitly specify fields to update
+		Updates(map[string]interface{}{
+			"verified": u.Verified,
+			"otp":      u.Otp,
+		})
+
 	if res.Error != nil {
 		return res.Error
 	}

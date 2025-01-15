@@ -165,5 +165,11 @@ func (h *Handler) handleSendVerificationCode(w http.ResponseWriter, r *http.Requ
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
-	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "verification code sent successfully"})
+	u.Otp = otp
+	u.OtpExpiration = time.Now().Add(time.Minute * 5)
+	if err := h.store.UpdateUserById(int64(u.ID), *u); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "verification code sent successfully", "code": otp})
 }
