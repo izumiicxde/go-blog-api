@@ -15,6 +15,8 @@ type BlogStore interface {
 	GetBlogById(id int64) (*Blog, error)
 	GetAllBlogs(userId int64) (*[]Blog, error)
 	UpdateBlogById(userId, id int64, b Blog) error
+	SoftDeleteBlogById(userId, id int64) error
+	DeleteBlogPermanentlyById(userId, id int64) error
 }
 
 type Tag struct {

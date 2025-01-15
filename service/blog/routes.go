@@ -37,12 +37,56 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	r := router.PathPrefix("/").Subrouter()
-	r.HandleFunc("/blogs/create", h.handleBlogCreation).Methods("POST")
-	r.HandleFunc("/blogs/all", h.handleGetAllBlogs).Methods("GET")
-	r.HandleFunc("/blogs/update/{id}", h.handleBlogUpdate).Methods("PATCH")
-	r.HandleFunc("/blogs/{id}", h.handleGetBlogById).Methods("GET")
+	r.HandleFunc("/blogs", h.handleBlogCreation).Methods("POST")     // For creating a blog
+	r.HandleFunc("/blogs", h.handleGetAllBlogs).Methods("GET")       // For fetching all blogs
+	r.HandleFunc("/blogs/{id}", h.handleGetBlogById).Methods("GET")  // For fetching a single blog by ID
+	r.HandleFunc("/blogs/{id}", h.handleBlogUpdate).Methods("PATCH") // For updating a blog by ID
+
+	r.HandleFunc("/blogs/soft/{id}", h.handleBlogSoftDeletion).Methods("DELETE")   // Soft delete
+	r.HandleFunc("/blogs/delete/{id}", h.handleBlogHardDeletion).Methods("DELETE") // Hard delete
 
 	r.Use(h.AuthMiddleware) // this is to apply the middleware to all the routes under this subrouter
+}
+
+func (h *Handler) handleBlogHardDeletion(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	blogId, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid blog id: %w", err))
+		return
+	}
+	userId := r.Context().Value(types.UserIDKey).(int64)
+	if userId == 0 {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// soft delete the blog
+	if err := h.store.DeleteBlogPermanentlyById(userId, blogId); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to delete blog: %w", err))
+	}
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "permanently deleted the blog"})
+}
+
+// this sets the deleted_at field to the current time. and doesn't completely remove the blog from db
+func (h *Handler) handleBlogSoftDeletion(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	blogId, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid blog id: %w", err))
+		return
+	}
+	userId := r.Context().Value(types.UserIDKey).(int64)
+	if userId == 0 {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// soft delete the blog
+	if err := h.store.SoftDeleteBlogById(userId, blogId); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to delete blog: %w", err))
+	}
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "blog soft delete success"})
 }
 
 func (h *Handler) handleBlogUpdate(w http.ResponseWriter, r *http.Request) {

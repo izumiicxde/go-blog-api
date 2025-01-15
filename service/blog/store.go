@@ -28,7 +28,7 @@ b - the blog to update
 error - if there was an error
 */
 func (s *Store) UpdateBlogById(userId, id int64, b types.Blog) error {
-	res := s.db.Model(&types.Blog{}).Where("user_id = ? AND id = ?", userId, id).Updates(b)
+	res := s.db.Model(&types.Blog{}).Where("user_id = ? AND id = ? AND deleted_at is NULL", userId, id).Updates(b)
 
 	if res.Error != nil {
 		return res.Error
@@ -99,11 +99,54 @@ GetAllBlogs returns all the blogs for a given user
 func (s *Store) GetAllBlogs(userId int64) (*[]types.Blog, error) {
 
 	var blogs []types.Blog
-	if err := s.db.Where("user_id = ?", userId).Find(&blogs).Error; err != nil {
+	if err := s.db.Where("user_id = ? AND deleted_at is NULL", userId).Find(&blogs).Error; err != nil {
 		return nil, err
 	}
 	if len(blogs) == 0 {
 		return nil, fmt.Errorf("no blogs found")
 	}
 	return &blogs, nil
+}
+
+/*
+SoftDeleteBlogById soft deletes a blog by its id
+@params:
+userId - the id of the user
+id - the id of the blog
+
+@returns:
+error - if there was an error
+*/
+func (s *Store) SoftDeleteBlogById(userId, id int64) error {
+	res := s.db.Where("user_id = ? AND id = ? ", userId, id).Delete(&types.Blog{})
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("no blog found")
+	}
+	return nil
+}
+
+/*
+DeleteBlogPermanentlyById deletes a blog permanently by its id
+@params:
+userId - the id of the user
+id - the id of the blog
+
+@returns:
+error - if there was an error
+*/
+func (s *Store) DeleteBlogPermanentlyById(userId, id int64) error {
+
+	res := s.db.Unscoped().Where("user_id = ? AND id = ?", userId, id).Delete(&types.Blog{})
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("no blog found")
+	}
+	return nil
 }
