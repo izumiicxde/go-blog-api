@@ -1,6 +1,8 @@
 package blog
 
 import (
+	"fmt"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/izumii.cxde/blog-api/types"
 	"github.com/izumii.cxde/blog-api/utils"
@@ -13,6 +15,28 @@ type Store struct {
 
 func NewStore(db *gorm.DB) *Store {
 	return &Store{db: db}
+}
+
+/*
+UpdateBlogById updates a blog by its id
+@params:
+userId - the id of the user
+id - the id of the blog
+b - the blog to update
+
+@returns:
+error - if there was an error
+*/
+func (s *Store) UpdateBlogById(userId, id int64, b types.Blog) error {
+	res := s.db.Model(&types.Blog{}).Where("user_id = ? AND id = ?", userId, id).Updates(b)
+
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("no blog found")
+	}
+	return nil
 }
 
 func (s *Store) CreateBlog(b types.Blog) error {
@@ -40,4 +64,46 @@ func (s *Store) CreateBlog(b types.Blog) error {
 	b.Tags = tags
 
 	return s.db.Create(&b).Error
+}
+
+/*
+GetBlogById returns a blog by its id
+If the blog doesn't exist, it returns nil with an error
+@params:
+
+	id - the id of the blog
+
+@returns:
+
+	blog - the blog with the given id
+	error - if there was an error
+*/
+func (s *Store) GetBlogById(id int64) (*types.Blog, error) {
+	var b types.Blog
+	if err := s.db.First(&b, id).Error; err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+/*
+GetAllBlogs returns all the blogs for a given user
+@params:
+
+	userId - the id of the user
+
+@returns:
+
+	blogs - a slice of blogs
+*/
+func (s *Store) GetAllBlogs(userId int64) (*[]types.Blog, error) {
+
+	var blogs []types.Blog
+	if err := s.db.Where("user_id = ?", userId).Find(&blogs).Error; err != nil {
+		return nil, err
+	}
+	if len(blogs) == 0 {
+		return nil, fmt.Errorf("no blogs found")
+	}
+	return &blogs, nil
 }

@@ -12,6 +12,9 @@ const UserIDKey ContextKey = "userId"
 // === === POST === ===
 type BlogStore interface {
 	CreateBlog(b Blog) error
+	GetBlogById(id int64) (*Blog, error)
+	GetAllBlogs(userId int64) (*[]Blog, error)
+	UpdateBlogById(userId, id int64, b Blog) error
 }
 
 type Tag struct {
