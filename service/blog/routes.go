@@ -142,7 +142,7 @@ func (h *Handler) handleGetBlogById(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	blogId, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
+		utils.WriteError(w, http.StatusNotFound, err)
 		return
 	}
 
