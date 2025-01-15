@@ -110,7 +110,7 @@ func (s *Store) GetAllBlogs(userId int64, term string) (*[]types.Blog, error) {
 
 	// If a search term is provided, filter the results based on the term
 	if term != "" {
-		query = query.Where("title LIKE ? OR description LIKE ?", "%"+term+"%", "%"+term+"%")
+		query = query.Where("title LIKE ? OR description LIKE ? OR category LIKE ?", "%"+term+"%", "%"+term+"%", "%"+term+"%")
 	}
 
 	// Execute the query
