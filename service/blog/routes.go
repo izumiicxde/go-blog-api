@@ -37,9 +37,11 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	r := router.PathPrefix("/").Subrouter()
-	r.HandleFunc("/blogs", h.handleBlogCreation).Methods("POST")     // For creating a blog
-	r.HandleFunc("/blogs", h.handleGetAllBlogs).Methods("GET")       // For fetching all blogs
-	r.HandleFunc("/blogs/{id}", h.handleGetBlogById).Methods("GET")  // For fetching a single blog by ID
+	r.HandleFunc("/blogs", h.handleBlogCreation).Methods("POST") // For creating a blog
+
+	r.HandleFunc("/blogs", h.handleGetAllBlogs).Methods("GET")      // For fetching all blogs
+	r.HandleFunc("/blogs/{id}", h.handleGetBlogById).Methods("GET") // For fetching a single blog by ID
+
 	r.HandleFunc("/blogs/{id}", h.handleBlogUpdate).Methods("PATCH") // For updating a blog by ID
 
 	r.HandleFunc("/blogs/soft/{id}", h.handleBlogSoftDeletion).Methods("DELETE")   // Soft delete
@@ -121,13 +123,14 @@ func (h *Handler) handleBlogUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleGetAllBlogs(w http.ResponseWriter, r *http.Request) {
+	term := r.URL.Query().Get("term")
 	userId := r.Context().Value(types.UserIDKey).(int64)
 	if userId == 0 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	// get all the blogs for the user
-	blogs, err := h.store.GetAllBlogs(userId)
+	blogs, err := h.store.GetAllBlogs(userId, term)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("error getting blogs: %w", err))
 		return

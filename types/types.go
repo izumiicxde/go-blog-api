@@ -13,7 +13,7 @@ const UserIDKey ContextKey = "userId"
 type BlogStore interface {
 	CreateBlog(b Blog) error
 	GetBlogById(id int64) (*Blog, error)
-	GetAllBlogs(userId int64) (*[]Blog, error)
+	GetAllBlogs(userId int64, term string) (*[]Blog, error)
 	UpdateBlogById(userId, id int64, b Blog) error
 	SoftDeleteBlogById(userId, id int64) error
 	DeleteBlogPermanentlyById(userId, id int64) error
@@ -21,7 +21,7 @@ type BlogStore interface {
 
 type Tag struct {
 	gorm.Model
-	Name string `json:"name" validate:"required,min=1,max=50"`
+	Name string `json:"name" gorm:"uniqueIndex" validate:"required,min=1,max=50"`
 }
 
 type BlogTag struct {

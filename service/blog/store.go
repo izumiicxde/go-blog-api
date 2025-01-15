@@ -40,6 +40,7 @@ func (s *Store) UpdateBlogById(userId, id int64, b types.Blog) error {
 }
 
 func (s *Store) CreateBlog(b types.Blog) error {
+	// Validate the blog object
 	errs := utils.Validate.Struct(b)
 	if errs != nil {
 		errs = errs.(validator.ValidationErrors)
@@ -50,11 +51,15 @@ func (s *Store) CreateBlog(b types.Blog) error {
 	var tags []types.Tag
 	for _, tagName := range b.Tags {
 		var tag types.Tag
-		if err := s.db.Where("name = ?", tagName).First(&tag).Error; err != nil {
-			// If the tag doesn't exist, create it
-			tag = types.Tag{Name: tagName.Name}
-			if err := s.db.Create(&tag).Error; err != nil {
-				return err
+
+		if err := s.db.Where("name = ?", tagName.Name).First(&tag).Error; err != nil {
+			if err.Error() == "record not found" {
+				tag = types.Tag{Name: tagName.Name}
+				if err := s.db.Create(&tag).Error; err != nil {
+					return err
+				}
+			} else {
+				return err // if the error is not with tag not found then return the error
 			}
 		}
 		tags = append(tags, tag)
@@ -63,6 +68,7 @@ func (s *Store) CreateBlog(b types.Blog) error {
 	// Assign the tags to the blog (many-to-many relationship)
 	b.Tags = tags
 
+	// Create the blog
 	return s.db.Create(&b).Error
 }
 
@@ -96,15 +102,28 @@ GetAllBlogs returns all the blogs for a given user
 
 	blogs - a slice of blogs
 */
-func (s *Store) GetAllBlogs(userId int64) (*[]types.Blog, error) {
-
+func (s *Store) GetAllBlogs(userId int64, term string) (*[]types.Blog, error) {
 	var blogs []types.Blog
-	if err := s.db.Where("user_id = ? AND deleted_at is NULL", userId).Find(&blogs).Error; err != nil {
+
+	// Start building the query with the user_id filter and deleted_at check
+	query := s.db.Where("user_id = ? AND deleted_at is NULL", userId)
+
+	// If a search term is provided, filter the results based on the term
+	if term != "" {
+		query = query.Where("title LIKE ? OR description LIKE ?", "%"+term+"%", "%"+term+"%")
+	}
+
+	// Execute the query
+	if err := query.Find(&blogs).Error; err != nil {
 		return nil, err
 	}
+
+	// If no blogs are found, return an error
 	if len(blogs) == 0 {
 		return nil, fmt.Errorf("no blogs found")
 	}
+
+	// Return the found blogs
 	return &blogs, nil
 }
 
