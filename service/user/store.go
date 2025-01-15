@@ -20,35 +20,33 @@ func NewStore(db *gorm.DB) *Store {
 	return &Store{db: db}
 }
 
+// SendVerificationCode sends a verification code to the user's email address using smtp server with my gmail
 func (s *Store) SendVerificationCode(email, otp, username string) error {
+	// can just return the error. But I added a custom error message for better clarification
 	if err := mail.SendMail(otp, email, username); err != nil {
 		return fmt.Errorf("failed to send mail: %w", err)
 	}
 	return nil
 }
 
+// GetUserByEmail gets a user by their email address
 func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	var u types.User
-	// get the user with email
 	res := s.db.First(&u, "email = ?", email)
-	if res.Error != nil {
-		return nil, res.Error
-	}
-	return &u, nil
+	return &u, res.Error
 }
 
+// GetUserById gets a user by their id
 func (s *Store) GetUserById(id int64) (*types.User, error) {
 	var u types.User
-
 	res := s.db.First(&u, id)
-	if res.Error != nil {
-		return nil, res.Error
-	}
-	return &u, nil
+	return &u, res.Error
 }
 
-// signature method to create a new user\n
-// @params: u(RegisterUserPayload) user info
+/*
+signature method to create a new user
+@params: u(RegisterUserPayload) user info
+*/
 func (s *Store) CreateUser(u types.RegisterUserPayload, otp string) error {
 	//validate user
 	errs := utils.Validate.Struct(u)
@@ -58,7 +56,7 @@ func (s *Store) CreateUser(u types.RegisterUserPayload, otp string) error {
 
 	// if no errors create user
 	// hash the user password
-	h, err := auth.HashPassword(u.Password)
+	hashedPassword, err := auth.HashPassword(u.Password)
 	if err != nil {
 		return err
 	}
@@ -67,7 +65,7 @@ func (s *Store) CreateUser(u types.RegisterUserPayload, otp string) error {
 		FirstName:     u.FirstName,
 		LastName:      u.LastName,
 		Email:         u.Email,
-		Password:      h, // hashed with bcrypt
+		Password:      hashedPassword, // hashed with bcrypt
 		AvatarUrl:     u.AvatarUrl,
 		Otp:           otp,
 		OtpExpiration: time.Now().Add(time.Minute * 5),
@@ -84,16 +82,16 @@ func (s *Store) UpdateUserById(id int64, u types.User) error {
 	}
 
 	// Use `Select` to include all fields explicitly
+	u.Otp = "0"
 	res := s.db.Model(&types.User{}).
 		Where("id = ?", id).
-		Select("verified", "otp"). // Explicitly specify fields to update
-		Updates(map[string]interface{}{
-			"verified": u.Verified,
-			"otp":      u.Otp,
-		})
+		Updates(u)
 
 	if res.Error != nil {
 		return res.Error
+	}
+	if res.Error.Error() == "record not found" {
+		return fmt.Errorf("blog not found")
 	}
 	return nil
 }

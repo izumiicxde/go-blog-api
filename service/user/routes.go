@@ -26,6 +26,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/get-verification-code", h.handleSendVerificationCode).Methods("GET")
 }
 
+// HandleLogin handles the login request
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var u types.LoginUserPayload
 	if err := utils.ParseJSON(r, &u); err != nil {
@@ -37,7 +38,6 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid request body %s", errs.Error()))
 		return
 	}
-
 	// get user by email
 	user, err := h.store.GetUserByEmail(u.Email)
 	if err != nil || user == nil {
@@ -128,6 +128,7 @@ func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
 	}
 	u.Verified = true
 	u.Otp = ""
+	u.OtpExpiration = time.Now()
 	if err := h.store.UpdateUserById(int64(u.ID), *u); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
