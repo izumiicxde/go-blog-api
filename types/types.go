@@ -48,6 +48,7 @@ type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserById(id int64) (*User, error)
 	CreateUser(u RegisterUserPayload, otp string) error
+	UpdateUserById(id int64, u User) error
 }
 
 type User struct {

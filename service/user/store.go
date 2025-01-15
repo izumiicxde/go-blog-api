@@ -67,3 +67,14 @@ func (s *Store) CreateUser(u types.RegisterUserPayload, otp string) error {
 
 	return s.db.Create(&user).Error
 }
+
+func (s *Store) UpdateUserById(id int64, u types.User) error {
+	if errs := utils.Validate.Struct(u); errs != nil {
+		return errs.(validator.ValidationErrors)
+	}
+	res := s.db.Model(&types.User{}).Where("id = ?", id).Updates(u)
+	if res.Error != nil {
+		return res.Error
+	}
+	return nil
+}

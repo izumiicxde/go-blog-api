@@ -14,8 +14,8 @@ func GenerateOTP() string {
 	return fmt.Sprintf("%06d", randomNumber)
 }
 
-func ValidateOTP(otp string, u types.User, userId int64) bool {
-	if u.Otp == otp && u.OtpExpiration.After(time.Now()) && !u.Verified && u.ID == uint(userId) {
+func ValidateOTP(otp string, u types.User) bool {
+	if u.Otp == otp && u.OtpExpiration.After(time.Now()) && !u.Verified {
 		return true
 	}
 	return false

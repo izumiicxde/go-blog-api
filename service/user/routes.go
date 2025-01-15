@@ -23,6 +23,7 @@ func NewHandler(store types.UserStore) *Handler {
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/login", h.handleLogin).Methods("POST")
 	router.HandleFunc("/register", h.handleRegister).Methods("POST")
+	router.HandleFunc("/verify", h.handleVerification).Methods("POST")
 }
 
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -81,15 +82,54 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// to make sure the requests are not spamming
+	if !user.OtpExpiration.After(time.Now()) {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("please wait some time. before trying again"))
+		return
+	}
+
 	otp := auth.GenerateOTP()
 	if err = h.store.CreateUser(u, otp); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to create user: %w", err))
 		return
 	}
+
 	ok, err := mail.SendMail(otp, u.Email, fmt.Sprintf("%s %s", u.FirstName, u.LastName))
 	if !ok || err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to send verification email: %w", err))
 		return
 	}
 	utils.WriteJSON(w, http.StatusCreated, map[string]string{"message": "user created successfully, please verify your email"})
+}
+
+func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
+	var VerificationPayload struct {
+		Email string `json:"email" validate:"required,email"`
+		Otp   string `json:"otp" validate:"required"`
+	}
+	if err := utils.ParseJSON(r, &VerificationPayload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := utils.Validate.Struct(VerificationPayload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid request body %s", err.Error()))
+		return
+	}
+	u, err := h.store.GetUserByEmail(VerificationPayload.Email)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if !auth.ValidateOTP(VerificationPayload.Otp, *u) {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid otp"))
+		return
+	}
+	u.Verified = true
+	u.Otp = ""
+	u.OtpExpiration = time.Time{}
+	if err := h.store.UpdateUserById(int64(u.ID), *u); err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
 }
