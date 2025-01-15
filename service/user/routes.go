@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/izumii.cxde/blog-api/mail"
 	"github.com/izumii.cxde/blog-api/service/auth"
 	"github.com/izumii.cxde/blog-api/types"
 	"github.com/izumii.cxde/blog-api/utils"
@@ -74,14 +75,21 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// get user by email
-	_, err := h.store.GetUserByEmail(u.Email)
-	if err == nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user with this email already exists"))
+	user, err := h.store.GetUserByEmail(u.Email)
+	if err == nil || (user != nil && user.Verified) {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already exists"))
 		return
 	}
-	if err = h.store.CreateUser(u); err != nil {
+
+	otp := auth.GenerateOTP()
+	if err = h.store.CreateUser(u, otp); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to create user: %w", err))
 		return
 	}
-	utils.WriteJSON(w, http.StatusCreated, map[string]string{"message": "user created successfully"})
+	ok, err := mail.SendMail(otp, u.Email, fmt.Sprintf("%s %s", u.FirstName, u.LastName))
+	if !ok || err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to send verification email: %w", err))
+		return
+	}
+	utils.WriteJSON(w, http.StatusCreated, map[string]string{"message": "user created successfully, please verify your email"})
 }

@@ -1,6 +1,8 @@
 package user
 
 import (
+	"time"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/izumii.cxde/blog-api/service/auth"
 	"github.com/izumii.cxde/blog-api/types"
@@ -38,7 +40,7 @@ func (s *Store) GetUserById(id int64) (*types.User, error) {
 
 // signature method to create a new user\n
 // @params: u(RegisterUserPayload) user info
-func (s *Store) CreateUser(u types.RegisterUserPayload) error {
+func (s *Store) CreateUser(u types.RegisterUserPayload, otp string) error {
 	//validate user
 	errs := utils.Validate.Struct(u)
 	if errs != nil {
@@ -53,11 +55,15 @@ func (s *Store) CreateUser(u types.RegisterUserPayload) error {
 	}
 	// passing u of RegisterUserPayload is causing error with gorm
 	user := types.User{
-		FirstName: u.FirstName,
-		LastName:  u.LastName,
-		Email:     u.Email,
-		Password:  h, // hashed with bcrypt
-		AvatarUrl: u.AvatarUrl,
+		FirstName:     u.FirstName,
+		LastName:      u.LastName,
+		Email:         u.Email,
+		Password:      h, // hashed with bcrypt
+		AvatarUrl:     u.AvatarUrl,
+		Otp:           otp,
+		OtpExpiration: time.Now().Add(time.Minute * 5),
+		Verified:      false,
 	}
+
 	return s.db.Create(&user).Error
 }

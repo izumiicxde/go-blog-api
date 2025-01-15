@@ -1,6 +1,8 @@
 package types
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -45,17 +47,20 @@ type Blog struct {
 type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserById(id int64) (*User, error)
-	CreateUser(u RegisterUserPayload) error
+	CreateUser(u RegisterUserPayload, otp string) error
 }
 
 type User struct {
 	gorm.Model
-	FirstName string `json:"first_name" validate:"required,min=3,max=30"`
-	LastName  string `json:"last_name" validate:"required,max=30"`
-	Email     string `json:"email" gorm:"uniqueIndex" validate:"required,email"`
-	Password  string `json:"password" validate:"required"`
-	AvatarUrl string `json:"avatar_url" validate:"required"`
-	Blogs     []Blog `gorm:"foreignKey:UserId"` // One-to-many relationship
+	FirstName     string    `json:"first_name" validate:"required,min=3,max=30"`
+	LastName      string    `json:"last_name" validate:"required,max=30"`
+	Email         string    `json:"email" gorm:"uniqueIndex" validate:"required,email"`
+	Password      string    `json:"password" validate:"required"`
+	AvatarUrl     string    `json:"avatar_url" validate:"required"`
+	Blogs         []Blog    `gorm:"foreignKey:UserId"` // One-to-many relationship
+	Otp           string    `json:"-" validate:"-"`
+	OtpExpiration time.Time `json:"-" validate:"-"`
+	Verified      bool      `json:"-" validate:"-" gorm:"default:false"`
 }
 
 type RegisterUserPayload struct {
