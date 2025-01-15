@@ -43,6 +43,11 @@ type Blog struct {
 	// User   User  `gorm:"foreignKey:UserId"`           // Establish relationship
 }
 
+type VerificationPayload struct {
+	Email string `json:"email" validate:"required,email"`
+	Otp   string `json:"otp" validate:"required"`
+}
+
 // === === USER  === ===
 type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
@@ -50,6 +55,7 @@ type UserStore interface {
 	CreateUser(u RegisterUserPayload, otp string) error
 	UpdateUserById(id int64, u User) error
 	DeleteUserById(id int64) error
+	SendVerificationCode(email, otp, username string) error
 }
 
 type User struct {

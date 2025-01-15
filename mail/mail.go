@@ -14,10 +14,10 @@ import (
 @returns bool, error
 if the verification code is sent successfully then return true, nil else return false, error message.
 */
-func SendMail(verificationCode string, to string, username string) (bool, error) {
+func SendMail(verificationCode string, to string, username string) error {
 	_, err := regexp.MatchString(`^[a-zA-Z0-9._%+-]+@[a-z]+\.[a-zA-Z]{2,}$`, to)
 	if err != nil {
-		return false, fmt.Errorf("invalid email address")
+		return fmt.Errorf("invalid email address")
 	}
 	smtpServer := os.Getenv("SMTP_SERVER")
 	smtpPort := os.Getenv("SMTP_PORT")
@@ -32,11 +32,11 @@ func SendMail(verificationCode string, to string, username string) (bool, error)
 
 	port, err := strconv.Atoi(smtpPort)
 	if err != nil {
-		return false, fmt.Errorf("invalid smtp port")
+		return fmt.Errorf("invalid smtp port")
 	}
 	d := gomail.NewDialer(smtpServer, port, smtpUser, smtpPassword)
 	if err := d.DialAndSend(m); err != nil {
-		return false, fmt.Errorf("error sending email")
+		return fmt.Errorf("error sending email")
 	}
-	return true, nil
+	return nil
 }

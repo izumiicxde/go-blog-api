@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/izumii.cxde/blog-api/mail"
 	"github.com/izumii.cxde/blog-api/service/auth"
 	"github.com/izumii.cxde/blog-api/types"
 	"github.com/izumii.cxde/blog-api/utils"
@@ -24,10 +23,10 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/login", h.handleLogin).Methods("POST")
 	router.HandleFunc("/register", h.handleRegister).Methods("POST")
 	router.HandleFunc("/verify", h.handleVerification).Methods("POST")
+	router.HandleFunc("/get-verification-code", h.handleSendVerificationCode).Methods("GET")
 }
 
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
-
 	var u types.LoginUserPayload
 	if err := utils.ParseJSON(r, &u); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
@@ -97,29 +96,24 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := mail.SendMail(otp, u.Email, fmt.Sprintf("%s %s", u.FirstName, u.LastName))
-	if !ok || err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to send verification email: %w", err))
-		return
+	if err := h.store.SendVerificationCode(u.Email, otp, fmt.Sprintf("%s %s", u.FirstName, u.LastName)); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
 	}
 	utils.WriteJSON(w, http.StatusCreated, map[string]string{"message": "user created successfully, please verify your email"})
 }
 
 func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
-	var VerificationPayload struct {
-		Email string `json:"email" validate:"required,email"`
-		Otp   string `json:"otp" validate:"required"`
-	}
-	if err := utils.ParseJSON(r, &VerificationPayload); err != nil {
+	var verificationPayload types.VerificationPayload
+	if err := utils.ParseJSON(r, &verificationPayload); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	if err := utils.Validate.Struct(VerificationPayload); err != nil {
+	if err := utils.Validate.Struct(verificationPayload); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid request body %s", err.Error()))
 		return
 	}
-	u, err := h.store.GetUserByEmail(VerificationPayload.Email)
+	u, err := h.store.GetUserByEmail(verificationPayload.Email)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -128,7 +122,7 @@ func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already verified"))
 		return
 	}
-	if !auth.ValidateOTP(VerificationPayload.Otp, *u) {
+	if !auth.ValidateOTP(verificationPayload.Otp, *u) {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid otp"))
 		return
 	}
@@ -139,4 +133,37 @@ func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "user verified successfully"})
+}
+
+func (h *Handler) handleSendVerificationCode(w http.ResponseWriter, r *http.Request) {
+	var p struct {
+		Email string `json:"email" validate:"required,email"`
+	}
+
+	if err := utils.ParseJSON(r, &p); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	u, err := h.store.GetUserByEmail(p.Email)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	if u.Verified {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already verified"))
+		return
+	}
+
+	// Check if OTP expiration time has passed
+	if time.Now().Before(u.OtpExpiration) {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("please wait until %s before requesting a new OTP", u.OtpExpiration.Format(time.RFC1123)))
+		return
+	}
+
+	otp := auth.GenerateOTP()
+	if err := h.store.SendVerificationCode(u.Email, otp, fmt.Sprintf("%s %s", u.FirstName, u.LastName)); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "verification code sent successfully"})
 }

@@ -1,9 +1,11 @@
 package user
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/izumii.cxde/blog-api/mail"
 	"github.com/izumii.cxde/blog-api/service/auth"
 	"github.com/izumii.cxde/blog-api/types"
 	"github.com/izumii.cxde/blog-api/utils"
@@ -16,6 +18,13 @@ type Store struct {
 
 func NewStore(db *gorm.DB) *Store {
 	return &Store{db: db}
+}
+
+func (s *Store) SendVerificationCode(email, otp, username string) error {
+	if err := mail.SendMail(otp, email, username); err != nil {
+		return fmt.Errorf("failed to send mail: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) GetUserByEmail(email string) (*types.User, error) {
