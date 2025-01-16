@@ -28,6 +28,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 
 // HandleLogin handles the login request
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
+	// get, parse and validate the payload
 	var u types.LoginUserPayload
 	if err := utils.ParseJSON(r, &u); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
@@ -69,12 +70,14 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
+	// get, parse and validate the payload
 	var u types.RegisterUserPayload
 	if err := utils.ParseJSON(r, &u); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
-	// get user by email
+	//get user by email. check if user exists
+	// if err is nil then the user exists.
 	user, err := h.store.GetUserByEmail(u.Email)
 	if err != nil {
 		if !(err.Error() == "record not found") {
@@ -82,27 +85,30 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err == nil || user != nil {
-		if user.Verified {
-			utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already exists"))
-		}
-		utils.WriteError(w, http.StatusBadRequest, err)
+	// user cannot register with same email if any users exists with same email
+	if (err == nil) || (user != nil) {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already exists"))
 		return
 	}
 
+	// if user doesn't exist create user and send them the verification code.
 	otp := auth.GenerateOTP()
 	if err = h.store.CreateUser(u, otp); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to create user: %w", err))
 		return
 	}
 
+	// send the email to the user with the verification code.
 	if err := h.store.SendVerificationCode(u.Email, otp, fmt.Sprintf("%s %s", u.FirstName, u.LastName)); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
+		return
 	}
 	utils.WriteJSON(w, http.StatusCreated, map[string]string{"message": "user created successfully, please verify your email"})
 }
 
+// this is to validate the verification code given by the user with the one sent
 func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
+	// get , parse and validate the user payload
 	var verificationPayload types.VerificationPayload
 	if err := utils.ParseJSON(r, &verificationPayload); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
@@ -113,22 +119,28 @@ func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid request body %s", err.Error()))
 		return
 	}
+
+	// get the user by email as provided by the front-end
 	u, err := h.store.GetUserByEmail(verificationPayload.Email)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
+	// check if user is already verified
 	if u.Verified {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already verified"))
 		return
 	}
+	// validate the otp with the user provided one
 	if !auth.ValidateOTP(verificationPayload.Otp, *u) {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid otp"))
 		return
 	}
+	// if the otp is correct. Then set verified to true.
 	u.Verified = true
 	u.Otp = ""
-	u.OtpExpiration = time.Now()
+	u.OtpExpiration = time.Now() // to say the otp has expired. just-in-case
+	// update the user with new field values
 	if err := h.store.UpdateUserById(int64(u.ID), *u); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
@@ -137,6 +149,7 @@ func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleSendVerificationCode(w http.ResponseWriter, r *http.Request) {
+	// get, parse and validate the email. to send the verification code
 	var p struct {
 		Email string `json:"email" validate:"required,email"`
 	}
@@ -145,32 +158,37 @@ func (h *Handler) handleSendVerificationCode(w http.ResponseWriter, r *http.Requ
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
+	// get the user.
 	u, err := h.store.GetUserByEmail(p.Email)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
+	// check if user is already verified. Then we don't send the code again
 	if u.Verified {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user already verified"))
 		return
 	}
 
-	// Check if OTP expiration time has passed
+	// Check if OTP expiration time has passed. This is to stop from too many requests
 	if time.Now().Before(u.OtpExpiration) {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("please wait until %s before requesting a new OTP", u.OtpExpiration.Format(time.RFC1123)))
 		return
 	}
 
+	// generate the otp
 	otp := auth.GenerateOTP()
+	// send the email with otp to user.
 	if err := h.store.SendVerificationCode(u.Email, otp, fmt.Sprintf("%s %s", u.FirstName, u.LastName)); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
+	// update the user in db with the otp for future use
 	u.Otp = otp
-	u.OtpExpiration = time.Now().Add(time.Minute * 5)
+	u.OtpExpiration = time.Now().Add(time.Minute * 5) // 5 min expiration
 	if err := h.store.UpdateUserById(int64(u.ID), *u); err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
-	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "verification code sent successfully", "code": otp})
+	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "verification code sent successfully", "verification_code": otp})
 }
