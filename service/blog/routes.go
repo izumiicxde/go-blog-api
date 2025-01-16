@@ -23,6 +23,7 @@ func NewHandler(store types.BlogStore, userStore types.UserStore) *Handler {
 	return &Handler{store: store, userStore: userStore}
 }
 
+// validate if the user is authorized to visit these routes.
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId, err := auth.ParseJWTRequest(r)
@@ -30,6 +31,7 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+		// if the user is authenticated then send the user id from the token to the actual handler
 		ctx := context.WithValue(r.Context(), types.UserIDKey, userId)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

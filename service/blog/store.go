@@ -51,20 +51,11 @@ func (s *Store) CreateBlog(b types.Blog) error {
 	var tags []types.Tag
 	for _, tagName := range b.Tags {
 		var tag types.Tag
-
-		if err := s.db.Where("name = ?", tagName.Name).First(&tag).Error; err != nil {
-			if err.Error() == "record not found" {
-				tag = types.Tag{Name: tagName.Name}
-				if err := s.db.Create(&tag).Error; err != nil {
-					return err
-				}
-			} else {
-				return err // if the error is not with tag not found then return the error
-			}
+		if err := s.db.FirstOrCreate(&tag, types.Tag{Name: tagName.Name}).Error; err != nil {
+			return err
 		}
 		tags = append(tags, tag)
 	}
-
 	// Assign the tags to the blog (many-to-many relationship)
 	b.Tags = tags
 
@@ -86,6 +77,7 @@ If the blog doesn't exist, it returns nil with an error
 */
 func (s *Store) GetBlogById(id int64) (*types.Blog, error) {
 	var b types.Blog
+	// The preload is used to eager load the tags relationship
 	if err := s.db.Preload("Tags").First(&b, id).Error; err != nil {
 		return nil, err
 	}
@@ -104,10 +96,8 @@ GetAllBlogs returns all the blogs for a given user
 */
 func (s *Store) GetAllBlogs(userId int64, term string) (*[]types.Blog, error) {
 	var blogs []types.Blog
-
 	// Start building the query with the user_id filter and deleted_at check
 	query := s.db.Preload("Tags").Where("user_id = ? AND deleted_at is NULL", userId)
-
 	// If a search term is provided, filter the results based on the term
 	if term != "" {
 		query = query.Where("title LIKE ? OR description LIKE ? OR category LIKE ?", "%"+term+"%", "%"+term+"%", "%"+term+"%")
@@ -132,20 +122,16 @@ SoftDeleteBlogById soft deletes a blog by its id
 @params:
 userId - the id of the user
 id - the id of the blog
-
 @returns:
 error - if there was an error
 */
 func (s *Store) SoftDeleteBlogById(userId, id int64) error {
 	res := s.db.Where("user_id = ? AND id = ? ", userId, id).Delete(&types.Blog{})
-	if res.Error != nil {
-		return res.Error
-	}
-
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("no blog found")
 	}
-	return nil
+	// if the error is not blog not found then just return the error
+	return res.Error
 }
 
 /*
@@ -160,12 +146,8 @@ error - if there was an error
 func (s *Store) DeleteBlogPermanentlyById(userId, id int64) error {
 
 	res := s.db.Unscoped().Where("user_id = ? AND id = ?", userId, id).Delete(&types.Blog{})
-	if res.Error != nil {
-		return res.Error
-	}
-
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("no blog found")
 	}
-	return nil
+	return res.Error
 }
