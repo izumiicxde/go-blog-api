@@ -85,7 +85,24 @@ func (s *Store) GetBlogById(id int64) (*types.Blog, error) {
 }
 
 /*
-GetAllBlogs returns all the blogs for a given user
+Get all blogs from the database
+@return - blogs array, error
+*/
+func (s *Store) GetAllBlogs() (*[]types.Blog, error) {
+	var blogs []types.Blog
+	if err := s.db.Preload("Tags").Find(&blogs).Error; err != nil {
+		return nil, err
+	}
+
+	if len(blogs) == 0 {
+		return nil, fmt.Errorf("no blogs found")
+	}
+
+	return &blogs, nil
+}
+
+/*
+GetAllBlogsByUserId returns all the blogs for a given user
 @params:
 
 	userId - the id of the user
@@ -94,7 +111,7 @@ GetAllBlogs returns all the blogs for a given user
 
 	blogs - a slice of blogs
 */
-func (s *Store) GetAllBlogs(userId int64, term string) (*[]types.Blog, error) {
+func (s *Store) GetAllBlogsByUserId(userId int64, term string) (*[]types.Blog, error) {
 	var blogs []types.Blog
 	// Start building the query with the user_id filter and deleted_at check
 	query := s.db.Preload("Tags").Where("user_id = ? AND deleted_at is NULL", userId)

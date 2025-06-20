@@ -38,11 +38,15 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 }
 
 func (h *Handler) RegisterRoutes(router *mux.Router) {
+	// the only public route in this subroute
+	public := router.PathPrefix("/").Subrouter()
+	public.HandleFunc("/blogs", h.handleGetAllBlogs).Methods("GET")
+
 	r := router.PathPrefix("/").Subrouter()
 	r.HandleFunc("/blogs", h.handleBlogCreation).Methods("POST") // For creating a blog
 
-	r.HandleFunc("/blogs", h.handleGetAllBlogs).Methods("GET")      // For fetching all blogs
-	r.HandleFunc("/blogs/{id}", h.handleGetBlogById).Methods("GET") // For fetching a single blog by ID
+	r.HandleFunc("/blogs/{userId}", h.handleGetAllBlogsByUserId).Methods("GET") // For fetching all blogs
+	r.HandleFunc("/blogs/{id}", h.handleGetBlogById).Methods("GET")             // For fetching a single blog by ID
 
 	r.HandleFunc("/blogs/{id}", h.handleBlogUpdate).Methods("PATCH") // For updating a blog by ID
 
@@ -50,6 +54,15 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	r.HandleFunc("/blogs/delete/{id}", h.handleBlogHardDeletion).Methods("DELETE") // Hard delete
 
 	r.Use(h.AuthMiddleware) // this is to apply the middleware to all the routes under this subrouter
+}
+
+func (h *Handler) handleGetAllBlogs(w http.ResponseWriter, r *http.Request) {
+	blogs, err := h.store.GetAllBlogs()
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("error getting blogs: %w", err))
+		return
+	}
+	utils.WriteJSON(w, http.StatusOK, blogs)
 }
 
 func (h *Handler) handleBlogHardDeletion(w http.ResponseWriter, r *http.Request) {
@@ -125,15 +138,21 @@ func (h *Handler) handleBlogUpdate(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "blog updated successfully"})
 }
 
-func (h *Handler) handleGetAllBlogs(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleGetAllBlogsByUserId(w http.ResponseWriter, r *http.Request) {
+
+	vars := mux.Vars(r)
+	userId, err := strconv.ParseInt(vars["id"], 10, 64)
+
 	term := r.URL.Query().Get("term")
-	userId := r.Context().Value(types.UserIDKey).(int64)
+	if userId == 0 || err != nil {
+		userId = r.Context().Value(types.UserIDKey).(int64)
+	}
 	if userId == 0 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	// get all the blogs for the user
-	blogs, err := h.store.GetAllBlogs(userId, term)
+	blogs, err := h.store.GetAllBlogsByUserId(userId, term)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("error getting blogs: %w", err))
 		return

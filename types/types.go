@@ -14,8 +14,9 @@ const UserIDKey ContextKey = "userId"
 // === === POST === ===
 type BlogStore interface {
 	CreateBlog(b Blog) error
+	GetAllBlogs() (*[]Blog, error)
 	GetBlogById(id int64) (*Blog, error)
-	GetAllBlogs(userId int64, term string) (*[]Blog, error)
+	GetAllBlogsByUserId(userId int64, term string) (*[]Blog, error)
 	UpdateBlogById(userId, id int64, b Blog) error
 	SoftDeleteBlogById(userId, id int64) error
 	DeleteBlogPermanentlyById(userId, id int64) error
